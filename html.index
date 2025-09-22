@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Dashboard — Single File</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --muted:#9aa4b2;
+      --accent:#7c3aed;
+      --glass: rgba(255,255,255,0.03);
+      --glass-2: rgba(255,255,255,0.02);
+      --success: #10b981;
+      color-scheme: dark;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;background:linear-gradient(180deg,var(--bg),#071026);color:#e6eef6}
+    a{color:inherit}
+
+    /* Layout */
+    .app{display:grid;grid-template-columns:260px 1fr;gap:18px;min-height:100vh;padding:22px}
+    .sidebar{background:linear-gradient(180deg,var(--card),#061321);border-radius:14px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+    .logo{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),#4f46e5);display:grid;place-items:center;border-radius:9px;font-weight:800}
+    .logo span{font-size:18px}
+    .title{font-weight:700}
+    .menu{margin-top:8px}
+    .menu button{display:block;width:100%;background:transparent;border:0;padding:10px;border-radius:10px;color:var(--muted);text-align:left;font-weight:600;margin-bottom:6px}
+    .menu button.active{background:linear-gradient(90deg,rgba(124,58,237,0.14),rgba(79,70,229,0.06));color:#fff}
+
+    .main{display:flex;flex-direction:column;gap:18px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-radius:12px;background:var(--glass);backdrop-filter: blur(6px)}
+    .search{display:flex;gap:10px;align-items:center}
+    .search input{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 12px;border-radius:10px;color:inherit;min-width:280px}
+    .actions{display:flex;gap:10px;align-items:center}
+    .btn{padding:8px 12px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--accent),#4f46e5);color:white;font-weight:600;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04)}
+
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    .card{background:linear-gradient(180deg,var(--glass),var(--glass-2));padding:16px;border-radius:12px;box-shadow:0 4px 18px rgba(2,6,23,0.45)}
+    .card h3{margin:0;font-size:14px;color:var(--muted);font-weight:700}
+    .stat{font-size:22px;font-weight:800;margin-top:6px}
+    .small{font-size:12px;color:var(--muted);margin-top:6px}
+
+    .wide{grid-column:span 2}
+    .chart-container{height:220px}
+
+    .section{display:flex;gap:18px}
+    .panel{flex:1;min-height:220px}
+
+    .chat{display:flex;flex-direction:column;gap:12px}
+    .chat textarea{min-height:120px;border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .controls{display:flex;gap:8px;align-items:center}
+
+    footer{opacity:0.6;font-size:13px}
+
+    /* responsive */
+    @media (max-width:980px){.app{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.wide{grid-column:span 2}}
+    @media (max-width:640px){.grid{grid-template-columns:1fr}.sidebar{display:none}.topbar .search input{min-width:120px}}
+
+    /* tiny UI nicety */
+    .chip{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.03);font-weight:700}
+    .kpi-row{display:flex;gap:12px;margin-top:12px}
+    .kpi{flex:1;padding:10px;border-radius:10px;background:transparent;border:1px solid rgba(255,255,255,0.03)}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Sidebar">
+      <div class="brand">
+        <div class="logo"><span>AI</span></div>
+        <div>
+          <div class="title">Aether AI</div>
+          <div class="small">Realtime model observability</div>
+        </div>
+      </div>
+
+      <div class="menu" role="navigation">
+        <button class="active">Overview</button>
+        <button>Models</button>
+        <button>Usage</button>
+        <button>Logs</button>
+        <button>Settings</button>
+      </div>
+
+      <div style="margin-top:18px">
+        <div class="small">Environment</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <div class="chip">Prod</div>
+          <div class="chip">Staging</div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px" class="small">Models deployed</div>
+      <ul style="padding-left:18px;margin-top:8px;opacity:0.9">
+        <li>gpt-5-thinking-mini</li>
+        <li>gpt-4o</li>
+        <li>embeddings-v1</li>
+      </ul>
+
+      <div style="position:relative;margin-top:18px;font-size:13px;color:var(--muted)">
+        <div style="margin-bottom:6px">API Key</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="apiKey" placeholder="sk-…" style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit" />
+          <button class="btn ghost" onclick="saveApiKey()">Save</button>
+        </div>
+      </div>
+
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="search">
+          <input id="globalSearch" placeholder="Search logs, prompts, models..." />
+          <div class="small">| Live since <strong id="uptime">0d 00:00</strong></div>
+        </div>
+        <div class="actions">
+          <select id="modelSelect" style="padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit">
+            <option value="gpt-5">gpt-5-thinking-mini</option>
+            <option value="gpt-4o">gpt-4o</option>
+            <option value="gpt-3.5">gpt-3.5-turbo</option>
+          </select>
+          <button class="btn" id="generateBtn">Generate</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Requests / min</h3>
+          <div class="stat" id="rpm">1,240</div>
+          <div class="small">Last 5 minutes — <span id="rpm-diff">+8%</span></div>
+          <div class="kpi-row">
+            <div class="kpi">Latency <div style="font-weight:800;margin-top:6px">142ms</div></div>
+            <div class="kpi">Success <div style="font-weight:800;margin-top:6px">99.3%</div></div>
+            <div class="kpi">Tokens <div style="font-weight:800;margin-top:6px">1.2M</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Active Users</h3>
+          <div class="stat" id="activeUsers">3,821</div>
+          <div class="small">Realtime connected sessions</div>
+        </div>
+
+        <div class="card">
+          <h3>Cost (30d)</h3>
+          <div class="stat">$3,420</div>
+          <div class="small">Estimated based on token usage</div>
+        </div>
+
+        <div class="card wide">
+          <h3>Throughput (last hour)</h3>
+          <div class="chart-container"><canvas id="throughputChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <h3>Top intents</h3>
+          <ul id="intents" style="padding-left:16px;margin-top:8px;opacity:0.95">
+            <li>Summarization — 32%</li>
+            <li>Q&A — 26%</li>
+            <li>Classification — 19%</li>
+            <li>Code generation — 13%</li>
+            <li>Other — 10%</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Model Health</h3>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+            <div style="flex:1">
+              <div class="small">CPU</div>
+              <div style="font-weight:800">38%</div>
+            </div>
+            <div style="flex:1">
+              <div class="small">GPU</div>
+              <div style="font-weight:800">64%</div>
+            </div>
+            <div style="flex:1">
+              <div class="small">Memory</div>
+              <div style="font-weight:800">72%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="panel card">
+          <h3>Prompt playground</h3>
+          <div class="chat">
+            <textarea id="promptInput" placeholder="Write a prompt or paste input to send to the model..."></textarea>
+            <div class="controls">
+              <input id="temp" type="number" step="0.1" min="0" max="2" value="0.7" style="width:86px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit" />
+              <select id="role" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit">
+                <option value="assistant">Assistant</option>
+                <option value="system">System</option>
+                <option value="user">User</option>
+              </select>
+              <button class="btn" id="runPrompt">Run</button>
+              <button class="btn ghost" id="clear">Clear</button>
+            </div>
+
+            <div id="responseArea" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div class="panel card">
+          <h3>Recent logs</h3>
+          <div id="logs" style="font-family:monospace;font-size:13px;opacity:0.95;margin-top:8px;overflow:auto;height:260px;padding-right:6px"></div>
+        </div>
+      </div>
+
+      <footer style="padding:8px 4px">Built for demo — tweak styles & data. Want features like live WS, API integration or auth? Ask and I’ll add them.</footer>
+
+    </main>
+  </div>
+
+  <script>
+    // --- small helper UI + demo data (single-file, no backend) ---
+    const uptimeEl = document.getElementById('uptime');
+    const rpmEl = document.getElementById('rpm');
+    const rpmDiff = document.getElementById('rpm-diff');
+    const activeUsersEl = document.getElementById('activeUsers');
+    const intentsEl = document.getElementById('intents');
+    const logsEl = document.getElementById('logs');
+    const responseArea = document.getElementById('responseArea');
+
+    // uptime timer
+    let start = Date.now();
+    setInterval(()=>{
+      const s = Math.floor((Date.now()-start)/1000);
+      const days = Math.floor(s/86400); const hrs = Math.floor((s%86400)/3600); const mins = Math.floor((s%3600)/60);
+      uptimeEl.textContent = `${days}d ${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}`;
+    },1000);
+
+    // demo throughput chart
+    const ctx = document.getElementById('throughputChart').getContext('2d');
+    const labels = Array.from({length:24},(_,i)=>`${i}:00`);
+    const dataPoints = labels.map(()=>Math.floor(Math.random()*1600)+200);
+    const throughputChart = new Chart(ctx,{
+      type:'line',
+      data:{labels, datasets:[{label:'requests',data:dataPoints,fill:true,tension:0.3,pointRadius:0}]},
+      options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+    });
+
+    // demo metrics updater
+    setInterval(()=>{
+      const rpm = Math.floor(900 + Math.random()*1400);
+      rpmEl.textContent = rpm.toLocaleString();
+      const diff = (Math.random()*8-4).toFixed(1);
+      rpmDiff.textContent = (diff>0?'+':'') + diff + '%';
+      const users = Math.floor(2000+Math.random()*5000);
+      activeUsersEl.textContent = users.toLocaleString();
+
+      // add a tiny data point
+      const next = Math.floor(200+Math.random()*1600);
+      throughputChart.data.datasets[0].data.shift();
+      throughputChart.data.datasets[0].data.push(next);
+      throughputChart.update();
+
+      // append fake log
+      const time = new Date().toLocaleTimeString();
+      const logLine = `[${time}] INFO model=gpt-5 req_id=${Math.random().toString(36).slice(2,9)} latency=${Math.floor(80+Math.random()*300)}ms`;
+      logsEl.innerText = (logLine + '\n' + logsEl.innerText).slice(0,10000);
+    },3500);
+
+    // prompt playground (mocked response)
+    document.getElementById('runPrompt').addEventListener('click', async ()=>{
+      const prompt = document.getElementById('promptInput').value.trim();
+      if(!prompt){ alert('Write a prompt first'); return }
+      const model = document.getElementById('modelSelect').value;
+      const temp = parseFloat(document.getElementById('temp').value)||0.7;
+
+      appendResponse('user', prompt);
+      appendResponse('assistant','...thinking');
+
+      // mock: simulate a call to an API, then replace response
+      setTimeout(()=>{
+        const out = `Mocked response from ${model} — (temp=${temp})\n\nSummary: ${prompt.slice(0,120)}${prompt.length>120?'...':''}`;
+        replaceLastResponse(out);
+        // add to logs
+        const time = new Date().toLocaleTimeString();
+        logsEl.innerText = (`[${time}] PROMPT model=${model} tokens=${Math.floor(20+Math.random()*400)}\n` + logsEl.innerText).slice(0,10000);
+      }, 700 + Math.random()*900);
+    });
+
+    document.getElementById('clear').addEventListener('click', ()=>{document.getElementById('promptInput').value=''; responseArea.innerHTML=''});
+
+    function appendResponse(who, text){
+      const el = document.createElement('div');
+      el.style.padding='10px';
+      el.style.borderRadius='10px';
+      el.style.marginBottom='8px';
+      if(who==='user'){
+        el.style.background='linear-gradient(90deg,rgba(255,255,255,0.02),transparent)';
+        el.textContent = 'You: ' + text;
+      } else {
+        el.style.background = 'linear-gradient(90deg,rgba(124,58,237,0.08),rgba(79,70,229,0.03))';
+        el.textContent = 'Assistant: ' + text;
+      }
+      responseArea.appendChild(el);
+      responseArea.scrollTop = responseArea.scrollHeight;
+    }
+    function replaceLastResponse(text){
+      const nodes = responseArea.children;
+      if(!nodes.length) return appendResponse('assistant', text);
+      const last = nodes[nodes.length-1];
+      last.textContent = 'Assistant: ' + text;
+    }
+
+    // small local-save demo for API key
+    function saveApiKey(){
+      const k = document.getElementById('apiKey').value.trim();
+      if(!k) return alert('Paste your API key (demo only)');
+      localStorage.setItem('demo_api_key', k);
+      alert('API key saved locally (demo).');
+    }
+
+    // quick keyboard shortcut: Ctrl+Enter to run prompt
+    document.addEventListener('keydown', (e)=>{
+      if(e.ctrlKey && e.key === 'Enter') document.getElementById('runPrompt').click();
+    });
+
+    // small accessibility: announce chart when focused
+    document.getElementById('throughputChart').setAttribute('role','img');
+
+  </script>
+</body>
+</html>
